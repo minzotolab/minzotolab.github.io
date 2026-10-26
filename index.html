@@ -9,7 +9,6 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
-<link rel="manifest" href="/icons/site.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="MINZOTO Lab">
@@ -320,17 +319,20 @@ html.introOn { overflow: hidden; }
 #oBtn { width: 100%; margin: 16px 0 0; border: 0; cursor: pointer; font: inherit; font-weight: bold; }
 #oBtn:disabled { opacity: .6; cursor: default; }
 
-/* ---------- Installer l'application ---------- */
-.install-fab { position: fixed; left: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 40; border: 1px solid #ffdd12; background: #171717; color: #ffdd12; font: inherit; font-weight: 700; font-size: 14px; padding: 12px 16px; border-radius: 999px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
-.install-fab svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.install-fab.hidden { display: none !important; }
-.inst-modal { position: fixed; inset: 0; z-index: 10001; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; padding: 16px; }
-.inst-modal.hidden { display: none !important; }
-.inst-box { background: #fff; color: #171717; border-radius: 18px; padding: 22px 20px; max-width: 400px; width: 100%; font-family: Arial, sans-serif; }
-.inst-box h3 { margin: 0 0 8px; font-size: 20px; }
-.inst-box ol { margin: 8px 0 14px; padding-left: 20px; line-height: 1.6; font-size: 15px; }
-.inst-box p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: #555; }
-.inst-box button { width: 100%; border: 0; border-radius: 12px; padding: 13px; background: #ffdd12; color: #000; font: inherit; font-weight: 800; cursor: pointer; }
+/* ---------- Paiement Mobile Money ---------- */
+.payBox { margin-top: 6px; }
+.payBox h4 { margin: 14px 0 6px; font-size: 17px; }
+.payBox .tabs { display: flex; gap: 8px; margin: 10px 0; }
+.payBox .tabs button { flex: 1; border: 2px solid #ddd; background: #fff; border-radius: 10px; padding: 11px 6px; font: inherit; font-weight: 700; cursor: pointer; }
+.payBox .tabs button.on { border-color: #171717; background: #ffdd12; }
+.payBox .num { background: #171717; color: #ffdd12; border-radius: 12px; padding: 14px; text-align: center; font-size: 24px; font-weight: 800; letter-spacing: 1px; }
+.payBox .amt { text-align: center; margin: 8px 0; font-size: 15px; color: #333; }
+.payBox .steps { font-size: 14px; line-height: 1.6; color: #444; padding-left: 20px; margin: 10px 0; }
+.payBox input[type=text] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 7px; font: inherit; font-size: 16px; }
+.payBox .pbtn { display: block; width: 100%; margin-top: 10px; border: 0; border-radius: 10px; padding: 13px; font: inherit; font-weight: 800; cursor: pointer; text-align: center; text-decoration: none; }
+.payBox .pbtn.copy { background: #eee; color: #171717; }
+.payBox .pbtn.go { background: #25d366; color: #fff; }
+.payBox .pbtn.later { background: none; color: #666; font-weight: 600; }
 </style>
 <noscript><style>#intro { display: none !important; }</style></noscript>
 </head>
@@ -568,7 +570,7 @@ html.introOn { overflow: hidden; }
       <article class="card">
         <div class="art">PORTRAIT</div>
         <div class="card-body">
-          <h3>Portrait numérique</h3>
+                    <h3>Portrait numérique</h3>
           <p class="intro">Des portraits artistiques personnalisés.</p>
         </div>
       </article>
@@ -684,6 +686,18 @@ html.introOn { overflow: hidden; }
       <button class="btn gold" id="oBtn" type="submit">Passer la commande</button>
       <p id="oOut" class="mmsg" role="status"></p>
     </form>
+    <div id="payBox" class="payBox hidden">
+      <h3>Commande reçue</h3>
+      <h4>Payer par Mobile Money</h4>
+      <div class="amt" id="pAmt"></div>
+      <div class="tabs"><button type="button" data-net="mpesa" class="on">M-Pesa</button><button type="button" data-net="orange">Orange Money</button></div>
+      <div class="num" id="pNum"></div>
+      <button type="button" class="pbtn copy" id="pCopy">Copier le numéro</button>
+      <ol class="steps"><li>Envoie le montant à ce numéro depuis ton téléphone.</li><li>Écris ici la référence de la transaction (le code reçu par SMS).</li><li>Touche « J'ai payé » : WhatsApp s'ouvre pour m'envoyer la preuve.</li></ol>
+      <input id="pRef" type="text" placeholder="Référence de la transaction (facultatif)" maxlength="40" autocomplete="off">
+      <a id="pGo" class="pbtn go" href="#" target="_blank" rel="noopener">J'ai payé</a>
+      <button type="button" class="pbtn later" id="pLater">Payer plus tard</button>
+    </div>
   </div>
 </div>
 
@@ -898,6 +912,32 @@ try {
   let current = null;
   const $o = id => document.getElementById(id);
   function oSay(text, ok) { const o = $o("oOut"); o.textContent = text; o.className = "mmsg " + (ok ? "ok" : "err"); }
+  const PAY = { mpesa: { label: "M-Pesa", num: "0835263914" }, orange: { label: "Orange Money", num: "0848062761" } };
+  let net = "mpesa", cust = "";
+  function payRender() {
+    const p = PAY[net];
+    $o("pNum").textContent = p.num;
+    document.querySelectorAll("#payBox .tabs button").forEach(b => b.classList.toggle("on", b.getAttribute("data-net") === net));
+    const o = current || {};
+    const txt = "Bonjour MINZOTO Lab, j'ai payé par " + p.label + " pour : " + (o.title || "") + (o.price ? " (" + o.price + ")" : "")
+      + ". Nom : " + cust + ($o("pRef").value.trim() ? ". Référence : " + $o("pRef").value.trim() : "") + ".";
+    $o("pGo").href = "https://wa.me/243835263914?text=" + encodeURIComponent(txt);
+  }
+  function showPay() {
+    $o("orderForm").classList.add("hidden");
+    $o("payBox").classList.remove("hidden");
+    $o("pAmt").textContent = "Montant à payer : " + ((current && current.price) || "voir avec moi sur WhatsApp");
+    payRender();
+  }
+  document.querySelectorAll("#payBox .tabs button").forEach(b => b.addEventListener("click", () => { net = b.getAttribute("data-net"); payRender(); }));
+  $o("pRef").addEventListener("input", payRender);
+  $o("pLater").addEventListener("click", closeOrder);
+  $o("pCopy").addEventListener("click", async () => {
+    const n = PAY[net].num;
+    try { await navigator.clipboard.writeText(n); $o("pCopy").textContent = "Numéro copié ✓"; }
+    catch (e) { $o("pCopy").textContent = "Note le numéro : " + n; }
+    setTimeout(() => { $o("pCopy").textContent = "Copier le numéro"; }, 2500);
+  });
   function closeOrder() { $o("orderModal").classList.add("hidden"); current = null; }
   document.getElementById("promoGrid").addEventListener("click", ev => {
     const b = ev.target.closest && ev.target.closest("[data-order]");
@@ -907,6 +947,7 @@ try {
     current = o;
     $o("oSum").textContent = o.title + (o.description ? " — " + o.description : "") + (o.price ? " (" + o.price + ")" : "");
     $o("oOut").textContent = "";
+    $o("orderForm").classList.remove("hidden"); $o("payBox").classList.add("hidden");
     $o("orderModal").classList.remove("hidden");
     setTimeout(() => $o("oName").focus(), 50);
   });
@@ -936,8 +977,8 @@ try {
       });
       try { localStorage.setItem("mz_order_t", String(Date.now())); } catch (e) {}
       $o("oText").value = "";
-      oSay("Merci ! Ta commande est bien reçue. Tu seras contacté(e) sur WhatsApp.", true);
-      setTimeout(closeOrder, 2600);
+      oSay("", true);
+      cust = name; showPay();
     } catch (e) {
       oSay("Envoi impossible pour le moment. Réessaie plus tard ou contacte-moi sur WhatsApp.");
     }
@@ -1099,39 +1140,6 @@ memberForm.addEventListener("submit", async ev => {
   btn.disabled = false;
 });
 </script>
-<button id="installFab" class="install-fab hidden" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg><span>Installer l'application</span></button>
-<div id="instModal" class="inst-modal hidden" role="dialog" aria-modal="true">
-  <div class="inst-box">
-    <h3>Installer MINZOTO Lab</h3>
-    <p id="instIntro">Ajoute-la à ton écran d'accueil pour l'ouvrir comme une application.</p>
-    <ol id="instSteps"></ol>
-    <p id="instWarn" style="display:none"><b>Tu es dans Facebook ou WhatsApp ?</b> Touche les trois points, puis « Ouvrir dans Chrome » (ou Safari), et recommence.</p>
-    <button type="button" id="instClose">J'ai compris</button>
-  </div>
-</div>
-<script>
-(function () {
-  if ("serviceWorker" in navigator) window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });
-  var standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
-  if (standalone) return;
-  var btn = document.getElementById("installFab"), modal = document.getElementById("instModal"), deferred = null;
-  var ua = navigator.userAgent, ios = /iphone|ipad|ipod/i.test(ua), inApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|MicroMessenger/i.test(ua);
-  function show() { btn.classList.remove("hidden"); }
-  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; show(); });
-  window.addEventListener("appinstalled", function () { btn.classList.add("hidden"); });
-  setTimeout(show, 2500);
-  btn.addEventListener("click", function () {
-    if (deferred) { deferred.prompt(); deferred.userChoice.then(function (c) { if (c && c.outcome === "accepted") btn.classList.add("hidden"); deferred = null; }); return; }
-    var steps = document.getElementById("instSteps");
-    steps.innerHTML = ios
-      ? "<li>Touche le bouton <b>Partager</b> (carré avec une flèche).</li><li>Choisis <b>Sur l'écran d'accueil</b>.</li><li>Touche <b>Ajouter</b>.</li>"
-      : "<li>Touche le menu <b>⋮</b> de ton navigateur (en haut à droite).</li><li>Choisis <b>Installer l'application</b> (ou <b>Ajouter à l'écran d'accueil</b>).</li><li>Confirme avec <b>Installer</b>.</li>";
-    document.getElementById("instWarn").style.display = inApp ? "block" : "none";
-    modal.classList.remove("hidden");
-  });
-  document.getElementById("instClose").addEventListener("click", function () { modal.classList.add("hidden"); });
-  modal.addEventListener("click", function (e) { if (e.target === modal) modal.classList.add("hidden"); });
-})();
-</script>
 </body>
 </html>
+
