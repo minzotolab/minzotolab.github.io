@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.minzotolab.twa",
+        "sha256_cert_fingerprints": ["BE:38:7C:1C:65:9D:79:4F:98:51:EC:C1:87:2A:7D:A0:F5:FB:85:1B:1C:86:40:97:02:26:CA:69:22:84:97:D8"]
+      }
+    }]
