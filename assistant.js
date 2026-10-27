@@ -6,7 +6,7 @@ const CFG = {
   MPESA: "0835263914",
   ORANGE: "0848062761",
   SITE: "https://minzotolab.github.io/",
-  MODELS: ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3-flash", "gemini-3.5-flash"],
+  MODELS: ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"],
   MAX_MSGS: 20,
   MAX_CHARS: 500,
   COOLDOWN: 3000
@@ -78,7 +78,7 @@ function siteKnowledge() {
   const promos = cards("#promoGrid .card");
   const projects = cards("#projectGrid .card").slice(0, 12);
   const main = document.querySelector("main");
-  const page = main ? main.innerText.replace(/\n{2,}/g, "\n").slice(0, 5000) : "";
+  const page = main ? main.innerText.replace(/\n{2,}/g, "\n").slice(0, 3500) : "";
   return "SERVICES ET TARIFS AFFICHÉS SUR LE SITE :\n" + (services.join("\n") || "(non chargés)")
     + "\n\nOFFRES ET PROMOTIONS EN COURS :\n" + (promos.join("\n") || "Aucune promotion affichée pour le moment.")
     + "\n\nQUELQUES RÉALISATIONS :\n" + (projects.join("\n") || "(voir la section Travaux du site)")
@@ -94,32 +94,41 @@ function systemPrompt() {
     + "Paiement Mobile Money : M-Pesa " + CFG.MPESA + " ou Orange Money " + CFG.ORANGE + ". Le client envoie le montant, puis touche « J'ai payé » pour envoyer la preuve (avec la référence de la transaction) sur WhatsApp. MINZOTO Lab confirme ensuite le paiement. Ne dis jamais qu'un paiement est confirmé automatiquement. "
     + "Devenir membre : gratuit, via la section « Membre » du site, pour être prévenu des nouveautés. "
     + "Si on te pose une question générale sans rapport avec MINZOTO Lab, réponds très brièvement puis ramène vers les services du studio ; refuse poliment ce qui est dangereux ou illégal. "
-    + "Style : chaleureux, professionnel, phrases courtes, listes courtes seulement si utile.\n\n"
+    + "Style : chaleureux, très concis (3 à 5 phrases maximum), listes courtes seulement si utile.\n\n"
     + siteKnowledge();
 }
 
 let aiMod = null, aiInst = null, modelName = null;
+try { modelName = localStorage.getItem("mza_model") || null; } catch (e) {}
+async function warm() {
+  try {
+    if (!aiMod) aiMod = await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-ai.js");
+    if (!aiInst) aiInst = aiMod.getAI(app, { backend: new aiMod.GoogleAIBackend() });
+  } catch (e) {}
+}
+window.addEventListener("load", () => setTimeout(warm, 1200));
 const history = [];
 let sent = 0, last = 0, busy = false;
 
 async function ask(question, el) {
-  if (!aiMod) aiMod = await import("https://www.gstatic.com/firebasejs/12.4.0/firebase-ai.js");
-  if (!aiInst) aiInst = aiMod.getAI(app, { backend: new aiMod.GoogleAIBackend() });
-  const names = modelName ? [modelName] : CFG.MODELS;
+  await warm();
+  const names = modelName ? [modelName].concat(CFG.MODELS.filter(m => m !== modelName)) : CFG.MODELS;
   let lastErr = null;
   for (const name of names) {
     try {
       const model = aiMod.getGenerativeModel(aiInst, {
         model: name, systemInstruction: systemPrompt(),
-        generationConfig: { temperature: 0.4, maxOutputTokens: 700 }
+        generationConfig: Object.assign({ temperature: 0.3, maxOutputTokens: 450 }, /2\.5/.test(name) ? { thinkingConfig: { thinkingBudget: 0 } } : {})
       });
       const res = await model.generateContentStream({ contents: history.concat([{ role: "user", parts: [{ text: question }] }]) });
       let acc = "";
       for await (const ch of res.stream) { acc += ch.text(); el.innerHTML = md(acc); $("mzaMsgs").scrollTop = $("mzaMsgs").scrollHeight; }
       modelName = name;
+      try { localStorage.setItem("mza_model", name); } catch (e) {}
       return acc;
     } catch (e) {
       lastErr = e;
+      if (modelName === name) { modelName = null; try { localStorage.removeItem("mza_model"); } catch (x) {} }
       if (!/not.?found|404|not supported|unsupported|invalid model/i.test(String((e && e.message) || e))) throw e;
     }
   }
